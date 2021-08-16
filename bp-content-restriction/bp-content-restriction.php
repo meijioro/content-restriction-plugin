@@ -16,7 +16,7 @@ class BPContentRestrictionPlugin {
   function __construct() {
     add_action( 'add_meta_boxes', array($this, 'add_form_setting_to_edit_view') );
     add_action( 'save_post', array($this, 'save_data') );
-    add_filter( 'the_content', array($this, 'bp_group_restrict_thecontent_main_loop'), 1 );
+    //add_filter( 'the_content', array($this, 'bp_group_restrict_thecontent_main_loop'), 1 );
   }
 
   /**
@@ -42,6 +42,8 @@ class BPContentRestrictionPlugin {
    * Create the fields
    */
   public function restriction_form_metabox($post) {
+    // hidden field for security
+    wp_nonce_field( basename(__FILE__), 'bp_content_restriction_metabox_nonce' );
 
     echo '<p>' . __('Only selected groups can view. If none are checked, the public can view.') . '</p>';
 
@@ -88,8 +90,7 @@ class BPContentRestrictionPlugin {
   <?php
     }
 
-     // hidden field for security
-     wp_nonce_field( basename(__FILE__), 'bp_content_restriction_metabox_nonce' );
+     
   }
 
 
@@ -101,11 +102,12 @@ class BPContentRestrictionPlugin {
    */
   public function save_data($post_id) {
 
-    if ( 
-      !isset($_POST['bp_content_restriction_metabox_nonce']) || 
-      !wp_verify_nonce( $_POST['bp_content_restriction_metabox_nonce'], basename(__FILE__) ) 
-    ) {
-      return wp_send_json_error($data);
+    $is_autosave = wp_is_post_autosave( $post_id );
+    $is_revision = wp_is_post_revision( $post_id );
+    $is_valid_nonce = ( isset( $_POST[ 'bp_content_restriction_metabox_nonce' ] ) && wp_verify_nonce( $_POST[ 'bp_content_restriction_metabox_nonce' ], basename( __FILE__ ) ) ) ? 'true' : 'false';
+
+    if ( $is_autosave || $is_revision || !$is_valid_nonce ) {
+        return;
     }
 
     // If the checkbox was not empty, save it as array in post meta
